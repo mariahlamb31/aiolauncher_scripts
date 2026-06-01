@@ -25,8 +25,8 @@ function on_click(idx)
         calendar_id = cal_id,
         title = "test",
         description = "test",
-        begin = os.time(),
-        ["end"] = os.time() + 3600,
+        begin_time = os.time(),
+        end_time = os.time() + 3600,
         allDay = false,
     }
 

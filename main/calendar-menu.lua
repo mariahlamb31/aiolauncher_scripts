@@ -4,13 +4,17 @@
 -- type = "drawer"
 -- aio_version = "4.7.99"
 -- author = "Evgeny Zobnin"
--- version = "1.1"
+-- version = "1.2"
 
 local fmt = require "fmt"
 
 local have_permission = false
 local events = {}
 local calendars = {}
+
+function event_begin(event)
+    return event.begin_time or event.begin
+end
 
 function on_drawer_open()
     events = calendar:events()
@@ -30,7 +34,7 @@ function on_drawer_open()
     end
 
     lines = map(function(it)
-        local date = fmt.colored(format_date(it.begin), it.calendar_color)
+        local date = fmt.colored(format_date(event_begin(it)), it.calendar_color)
         return date..fmt.space(4)..it.title
     end, events)
 
@@ -67,4 +71,3 @@ function on_long_click(idx)
 
     calendar:open_event(events[idx].id)
 end
-

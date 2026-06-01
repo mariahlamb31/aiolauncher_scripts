@@ -1,75 +1,48 @@
 -- type = "widget"
--- name = "Timer API example"
--- description = "Start/stop timers from script"
+-- name = "Timer list"
+-- description = "Shows saved timers as a list. Tap to start."
 
-local widget_gui
+local timers = {}
 
-local function build_ui(total, active)
-    local state_text = timer:is_active() and "active" or "idle"
-    local state_color = timer:is_active() and "#2E7D32" or "#616161"
-    local progress = 0
-    if total > 0 then
-        progress = math.floor((active * 100) / total)
-    end
-
-    return {
-        {"text", "<b>Timer API</b>", {size = 18}},
-        {"spacer", 2},
-        {"text", state_text, {color = state_color, gravity = "center_v"}},
-        {"new_line", 1},
-        {"text", "All timers: <b>" .. tostring(total) .. "</b>"},
-        {"new_line", 1},
-        {"text", "Active: <b>" .. tostring(active) .. "</b>"},
-        {"new_line", 2},
-        {"progress", "Active ratio", {progress = progress}},
-        {"new_line", 2},
-        {"button", "Start 1m", {expand = true}},
-        {"spacer", 2},
-        {"button", "Start 5m", {expand = true}},
-        {"new_line", 2},
-        {"button", "Stop all", {color = "#B71C1C", expand = true}},
-    }
+local function fmt_ms(ms)
+    local secs = math.max(0, math.floor((tonumber(ms) or 0) / 1000))
+    local m = math.floor(secs / 60)
+    return string.format("%d:%02d", m, secs - m * 60)
 end
 
 local function render()
-    local timers = timer:list()
-    local active = 0
-    for i = 1, #timers do
-        if timers[i].active then active = active + 1 end
-    end
+    timers = timer:list()
+    if type(timers) ~= "table" then timers = {} end
 
-    widget_gui = gui(build_ui(#timers, active))
-    widget_gui.render()
+    local lines = {}
+    for _, t in ipairs(timers) do
+        if t.active then
+            table.insert(lines, fmt_ms(t.current_ms) .. " / " .. fmt_ms(t.total_ms))
+        else
+            table.insert(lines, fmt_ms(t.total_ms))
+        end
+    end
+    table.insert(lines, "Stop all")
+
+    ui:show_lines(lines)
 end
 
 function on_load()
     render()
 end
 
-function on_resume()
+function on_click(idx)
+    if idx == #timers + 1 then
+        timer:stop_all()
+    else
+        local t = timers[idx]
+        if t then timer:start(t.total_ms) end
+    end
     render()
 end
 
-function on_click(index)
-    if not widget_gui or not widget_gui.ui or not widget_gui.ui[index] then
-        return
+function on_tick()
+    if timer:is_active() then
+        render()
     end
-
-    local element = widget_gui.ui[index]
-    if element[1] ~= "button" then
-        return
-    end
-
-    local button_text = element[2]
-    if button_text == "Start 1m" then
-        timer:start(60 * 1000)
-    elseif button_text == "Start 5m" then
-        timer:start(5 * 60 * 1000)
-    elseif button_text == "Stop all" then
-        timer:stop_all()
-    else
-        return
-    end
-
-    render()
 end
