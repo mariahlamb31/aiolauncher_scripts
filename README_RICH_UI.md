@@ -82,6 +82,15 @@ By the way, if you want the button to stretch across the entire width of the scr
 
 Handling clicks on elements works the same as when using the `ui` module API. Just define `on_click()` or `on_long_click()` functions. The first parameter of the function will be the index of the element. How to use this mechanism can be learned in the example \[samples/rich-ui-sample.lua].
 
+By default, clicks and long clicks apply to the individual element that was pressed. If an element represents the whole current row, add `row = true` to its options. This makes empty space in that row clickable too, and when a long click opens a context menu, the whole row is highlighted instead of only the element:
+
+```
+{"icon", "fa:file", {row = true}},
+{"text", "Document.txt"},
+```
+
+If several elements in the same line use `row = true`, the empty row area uses the first such element's click handler. Pressing a later element directly still calls that element's own handler.
+
 Another useful option when working with text is the `font_padding` parameter. By default, Android fonts include invisible space above and below the letters. If you want to make lines more compact and collapse them closer to each other, you can disable this padding:
 
 ```
@@ -105,10 +114,10 @@ With these additional options — `font_padding`, `margin` and `offset` — you 
 This is all you need to know about the new API. Below is an example demonstrating all supported elements and all their default parameters:
 
 ```
-{"text", "", {size = 17, color = "", gravity = "left", font_padding = true, margin = "0", offset = "0"}},
-{"button", "", {color = "", gravity = "left", expand = "false", margin = "0", offset = "0"}},
-{"icon", "", {size = 17, color = "", gravity = "left", margin = "0", offset = "0", fixed_width = false}},
-{"progress", "", {progress = 0, color = "", margin = "0", offset = "0"}},
+{"text", "", {size = 17, color = "", gravity = "left", font_padding = true, margin = "0", offset = "0", row = false}},
+{"button", "", {color = "", gravity = "left", expand = "false", margin = "0", offset = "0", row = false}},
+{"icon", "", {size = 17, color = "", gravity = "left", margin = "0", offset = "0", fixed_width = false, row = false}},
+{"progress", "", {progress = 0, color = "", margin = "0", offset = "0", row = false}},
 {"new_line", 0},
 {"spacer", 0},
 ```
