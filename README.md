@@ -594,6 +594,7 @@ Intent table format (all fields are optional):
 * `component` - Explicitly set the component to handle the intent;
 * `type` - mime type;
 * `data` - data this intent is operating on;
+* `flags` - integer Android intent flag bitmask, or a table of integer flag values to combine;
 * `extras` - table of extra values in `key = value` format.
 
 ## Launcher control
