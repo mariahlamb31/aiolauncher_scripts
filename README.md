@@ -37,6 +37,7 @@ The type of script is determined by the line (meta tag) at the beginning of the 
 * Added `traffic` module for network traffic counters
 * Added `system:brightness_state()` and documented system table formats
 * Added recorder playback, per-record stop/delete/share, and transcription APIs
+* Added request-id based AI completion and audio transcription APIs
 * Added advanced player, notification, files, timer, profile, calendar, and app management APIs
 
 ### 7.0.5
@@ -1318,10 +1319,11 @@ _Available from: 5.3.5._
 
 _Requires subscription._
 
-* `ai:complete(text)` - send message to the AI;
-* `ai:translate(text, lang)` - translate text to the language with code `lang` (`en`, `de`, `es` etc).
+* `ai:complete(text, [id])` - send message to the AI. If `id` is supplied, the result is returned with the same request id in `on_ai_result(id, text, error)`;
+* `ai:translate(text, lang)` - translate text to the language with code `lang` (`en`, `de`, `es` etc);
+* `ai:transcribe(uri, [file_name], [id])` - transcribe an audio file by `content://` or `file://` URI. The optional `file_name` helps AIO detect the audio type (`.m4a`, `.3gp`, `.mp3`, `.wav`). If `id` is supplied, the result is returned with the same request id in `on_ai_result(id, text, error)`.
 
-All functions return an answer in the callback `on_ai_answer`. For example:
+When `ai:complete()` is called without `id`, and when `ai:translate()` is used, the answer is returned in the legacy callback `on_ai_answer`. For example:
 
 ```
 function on_alarm()
@@ -1333,7 +1335,41 @@ function on_ai_answer(answer)
 end
 ```
 
-_Keep in mind that the launcher imposes certain limitations on the use of this module. If you use it too frequently, you will receive an `error: rate limit` instead of a response. Additionally, an error will be returned if the request includes too much text._
+The request-id based functions return the result in `on_ai_result(id, text, error)`. `text` is `nil` on failure, and `error` is a string error code or message.
+
+```
+function on_alarm()
+    ai:complete("Summarize today's notifications in one sentence", "summary")
+end
+
+function on_ai_result(id, text, error)
+    if error then
+        ui:show_text("AI error: " .. error)
+        return
+    end
+
+    ui:show_text(text)
+end
+```
+
+To transcribe an audio file selected by the user:
+
+```
+function on_load()
+    files:pick_file("audio/*")
+end
+
+function on_file_picked(uri, name)
+    ai:transcribe(uri, name, "voice")
+end
+
+function on_ai_result(id, text, error)
+    if id ~= "voice" then return end
+    ui:show_text(error or text)
+end
+```
+
+_Keep in mind that the launcher imposes certain limitations on the use of this module. If you use it too frequently, the legacy callback will receive `error: rate limit`, and `on_ai_result()` will receive `rate limit` in its `error` argument. Additionally, an error will be returned if the request includes too much text or the audio file is too large._
 
 ## Reading notifications
 
