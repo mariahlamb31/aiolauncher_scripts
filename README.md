@@ -26,6 +26,11 @@ The type of script is determined by the line (meta tag) at the beginning of the 
 
 # Changelog
 
+### 7.4.0
+
+* Added `intent:open_uri()`, `intent:open_app_settings()`, and `intent:open_system_settings()` helpers
+* Added split network helpers: `system:internet_state()`, `system:active_network_state()`, `system:wifi_state()`, `system:mobile_state()`, and `system:bluetooth_state()`; `system:network_state()` is deprecated
+
 ### 7.2.0
 
 * Added `news` module for regional and world news
@@ -391,7 +396,7 @@ The function takes a command table of this format as a parameter:
 
 ## System
 
-* `system:open_browser(url)` - opens the specified URL in a browser or application that can handle this type of URL;
+* `system:open_browser(url)` - opens the specified web URL in a browser or application that can handle this type of URL. For app links, Android settings, and other non-web intents, prefer the `intent` module helpers below;
 * `system:exec(string, [id])` - executes a shell command;
 * `system:su(string, [id])` - executes a shell command as root;
 * `system:location()` - returns the location in the table with two values (location request is NOT executed, the value previously saved by the system is used);
@@ -409,7 +414,12 @@ The function takes a command table of this format as a parameter:
 * `system:battery_info()` - returns table with battery info;
 * `system:system_info()` - returns table with system info;
 * `system:brightness_state()` - returns current screen brightness state;
-* `system:network_state()` - returns table with current network info;
+* `system:network_state()` - deprecated legacy active/default network snapshot; use the split methods below for new scripts;
+* `system:internet_state()` - returns internet capability/validation for the active network;
+* `system:active_network_state()` - returns active/default network transport details;
+* `system:wifi_state()` - returns honest Wi-Fi visibility state;
+* `system:mobile_state()` - returns honest cellular visibility state;
+* `system:bluetooth_state()` - returns honest Bluetooth limitation state;
 * `system:show_notify(table)` - show system notification;
 * `system:cancel_notify()` - cancel notification.
 
@@ -455,18 +465,53 @@ Brightness state table:
 `sensor_available` - `true` if the device has a light sensor.
 ```
 
-Network state table:
+Network state helpers:
+
+`system:network_state()` is deprecated. It describes only the active/default network and must not be used to infer whether Wi-Fi, mobile data, SIM, or Bluetooth is turned off. New scripts should use the split helpers below.
 
 ```lua
-local s = system:network_state()
--- s.connected : boolean
--- s.type      : "wifi" | "mobile" | "none"
--- s.class     : "WiFi" | "2G" | "3G" | "4G" | "5G" | ""
--- s.ssid      : Wi-Fi SSID or ""
--- s.operator  : mobile operator name or ""
--- s.metered   : boolean (true if the active network is metered)
--- s.roaming   : boolean (true if the active network is in roaming)
+local internet = system:internet_state()
+-- internet.connected : boolean, active network has INTERNET capability
+-- internet.validated : boolean, Android verified real internet access
+-- internet.transport : "wifi" | "cellular" | "ethernet" | "vpn" | "bluetooth" | "unknown" | "none"
+-- internet.metered   : boolean
+-- internet.roaming   : boolean
+
+local net = system:active_network_state()
+-- net.type           : "wifi" | "cellular" | "ethernet" | "vpn" | "bluetooth" | "unknown" | "none"
+-- net.class          : "WiFi" | "2G" | "3G" | "4G" | "5G" | "Ethernet" | "VPN" | "Bluetooth" | ""
+-- net.name           : Wi-Fi SSID or cellular operator only when available for the active network
+-- net.name_available : boolean
+-- net.connected      : boolean, active network has INTERNET capability
+-- net.validated      : boolean, Android verified real internet access
+-- net.metered        : boolean
+-- net.roaming        : boolean
+
+local wifi = system:wifi_state()
+-- wifi.state          : "active" | "not_active" | "unknown"
+-- wifi.ssid           : SSID only when active and available
+-- wifi.ssid_available : boolean
+-- wifi.can_toggle     : false
+-- wifi.settings       : "wifi"
+-- wifi.limitation     : "toggle_restricted"
+
+local mobile = system:mobile_state()
+-- mobile.state              : "active" | "not_active" | "unknown"
+-- mobile.class              : "2G" | "3G" | "4G" | "5G" only when active
+-- mobile.operator           : operator only when active and available
+-- mobile.operator_available : boolean
+-- mobile.can_toggle         : false
+-- mobile.settings           : "network"
+-- mobile.limitation         : "toggle_restricted"
+
+local bt = system:bluetooth_state()
+-- bt.state      : "unknown"
+-- bt.can_toggle : false
+-- bt.settings   : "bluetooth"
+-- bt.limitation : "not_exposed"
 ```
+
+`state = "not_active"` means the radio is not the active/default network, not that it is turned off. Scripts cannot toggle Wi-Fi, Bluetooth, mobile data, or choose a data SIM through these APIs; open Android settings instead.
 
 `system:show_notify(table)` and `system:cancel_notify()` can be used to display, update, and delete system notifications. The possible fields for the `table` (each of them is optional) are:
 
@@ -586,6 +631,9 @@ Counters table:
 
 * `intent:start_activity(table)` - starts activity with intent described in the table;
 * `intent:send_broadcast(table)` - sends broadcast intent described in the table.
+* `intent:open_uri(uri)` - opens a normal URI or deep link with Android `ACTION_VIEW`. Use it for `https:`, `mailto:`, `tel:`, `geo:`, `market:`, and known app links. Do not use Android `intent:#Intent;...` strings here;
+* `intent:open_app_settings(package)` - opens the Android app-info/settings screen for the given package, for example `intent:open_app_settings("com.whatsapp")`;
+* `intent:open_system_settings(name)` - opens a supported Android settings screen by simple name: `settings`, `wifi`, `bluetooth`, `network`, `mobile_network`, `location`, `display`, `sound`, `accessibility`, `battery`, `battery_saver`, `notifications`, `apps`, `manage_apps`, `date`, `security`, `storage`, `nfc`, or `usage_access`;
 
 Intent table format (all fields are optional):
 
@@ -1635,6 +1683,7 @@ The standard Lua API is extended with the following features:
 * `string:trim()` - removes leading and trailing spaces from the string;
 * `string:starts_with(substring)` - returns true if the string starts with the specified substring;
 * `string:ends_with(substring)` - returns true if the string ends with the specified substring;
+* `string:contains(substring)` - returns true if the string contains the specified literal substring; the substring is not treated as a Lua pattern;
 * `slice(table, start, end)` - returns the part of the table starting with the `start` index and ending with `end` index;
 * `index(table, value)` - returns the index of the table element;
 * `key(table, value)` - returns the key of the table element;
@@ -1643,6 +1692,8 @@ The standard Lua API is extended with the following features:
 * `serialize(table)` - serializes the table into executable Lua code;
 * `round(x, n)` - rounds the number;
 * `map(function, table)`, `filter(function, table)`, `head(table)`, `tail(table)`, `reduce(function, table)` - several convenience functional utilities form Haskell, Python etc.
+
+The method table used by receiver calls such as `text:trim()` is launcher-owned and protected. Each script still has its own `string` table, but assigning `string.custom_method` or declaring `function string:custom_method()` affects only that table and does not add a receiver method. Define custom helpers as local functions instead. The built-in string extensions listed above remain available through receiver calls.
 
 AIO Launcher also includes:
 
