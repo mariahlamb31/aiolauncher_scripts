@@ -1511,6 +1511,11 @@ Scripts may request a system file picker:
 * `files:read_uri(uri)` - reads text from a file referenced by a content URI;
 * `files:write_uri(uri, string)` - writes text to a file referenced by a content URI.
 
+`pick_file` and `create_file` share one system result channel. Only one script can
+have an active request at a time. A successful launch returns `nil`. A concurrent
+request returns `"file_picker_busy"` without replacing the active script's
+callback; `"file_picker_unavailable"` means that the picker could not be opened.
+
 After the user selects a file, the callback is invoked:
 
 ```
@@ -1527,6 +1532,9 @@ Callback parameters:
 
 * `uri` - Android content URI of the selected or created file.
 * `name` - display name returned by the system.
+
+If the user dismisses the picker, the corresponding callback is still invoked
+with `uri == nil` and an empty `name`.
 
 Example:
 
