@@ -1,8 +1,20 @@
 Starting from version 5.2.0, AIO Launcher supports interaction with app widgets through scripts. This means that you can create a wrapper for any app's widget that will fully match the appearance and style of AIO. You can also use this API if you need to retrieve information from other applications, such as the balance on your mobile phone account or your car's parking spot. If the application has a widget providing such information, you will be able to access it.
 
-### Introduction
+### Creating a Wrapper with a Coding Agent
 
-Before you start working with app widgets, you need to find out the app widget provider's name and the widget interface structure. Both can be done using the [android-widget-dumper.lua](dev/android-widget-dumper.lua) script. Enter the package name of the desired application in its global variable `app_pkg` and run the script. It will display all the widgets available for that application. Click on the widget name, and you will see its provider name (first line) and a tree-like structure of its UI. Click on the text to copy it.
+The easiest way to create a new wrapper is to give a coding agent access to an emulator or device on which the target application is already installed. The automated workflow requires AIO Launcher 7.5.0-beta2 or newer, an unlocked device connected through ADB, and this repository available to the agent.
+
+Start the agent in the repository root and use a request like this:
+
+> The connected emulator has Todoist (`com.todoist`) installed. Create an AIO Launcher script wrapper for its task-list Android widget. Follow `tools/ANDROID_WIDGET_WRAPPER_AGENT.md`, inspect the real widget through ADB, test its important states and safe actions, and install the finished script.
+
+The agent will find the available widget providers, inspect the selected widget, write the Lua script, replay captured states, verify safe actions, and install the result. Android may ask you to confirm widget binding or complete the application's configuration screen. The agent may also ask you to prepare populated, empty, or other relevant states for testing.
+
+The complete procedure is described in [the coding-agent workflow](tools/ANDROID_WIDGET_WRAPPER_AGENT.md), and [the wrapper template](tools/android-widget-wrapper.lua.template) provides a starting point. Do not approve tests of destructive actions such as purchases, sends, or deletes unless that behavior is explicitly required.
+
+### Creating a Wrapper Manually
+
+To create a wrapper manually, first find the app widget provider's name and interface structure. Both can be obtained using the [android-widget-dumper.lua](dev/android-widget-dumper.lua) script. Enter the package name of the desired application in its global variable `app_pkg` and run the script. It will display all the widgets available for that application. Click on the widget name, and you will see its provider name (first line) and a tree-like structure of its UI. Click on the text to copy it.
 
 _Note: Some widgets can dynamically change their UI depending on their size. If you encounter such a widget, update the value of the `widget_size` variable by specifying a string from `1x1` to `4x4`. In other cases, leave the value as `nil`._
 
@@ -51,7 +63,34 @@ Having obtained the identifier, we can use it to communicate with the widget. Fo
 widgets:request_updates(prefs.wid)
 ```
 
-This method prepares the widget and then calls the `on_widget_updated(bridge)` callback every time the widget updates. The `bridge` object here is the main "window" or "bridge" for interacting with the widget. It's with its help that we will extract information from the widget.
+This method prepares the widget and then calls the `on_app_widget_updated(bridge)` callback every time the widget updates. The `bridge` object here is the main "window" or "bridge" for interacting with the widget. It's with its help that we will extract information from the widget.
+
+For new wrappers, prefer `bridge:snapshot()`. It returns an ordered `nodes` array with stable matching information such as `resource_id`, structural `path`, `kind`, text/value, visibility, bounds, collection position/item grouping, and state. Its top-level `collections` array reports total and visible item counts, visible positions, and scrollability. Nodes also contain per-render `handle` and `click_target` fields:
+
+```lua
+local w_bridge = nil
+local balance_click_target = nil
+
+function on_app_widget_updated(bridge)
+    local snapshot = bridge:snapshot()
+    local balance = nil
+    local click_target = nil
+
+    for _, node in ipairs(snapshot.nodes) do
+        if node.resource_id == "com.example.app:id/balance" then
+            balance = node.text or node.value
+            click_target = node.click_target
+            break
+        end
+    end
+
+    w_bridge = bridge
+    balance_click_target = click_target
+    ui:show_text(balance or "Data unavailable")
+end
+```
+
+Resource ids and paths are intended for matching. Handles are valid only for the bridge update that produced them: never hardcode or persist a value such as `node_7`. `bridge:snapshot_json()` returns the same structure as formatted JSON and is convenient for diagnostics.
 
 The most straightforward way to do this is to use the `bridge:dump_table()` method, which returns the same UI element hierarchy as the dumper script but in a Lua table format. Here's how we can use it to extract the strings we need and display them on the screen:
 
@@ -97,15 +136,25 @@ Implementing clicks on widget elements from the script is very simple: just use 
 bridge:click(temp)
 ```
 
+When using `bridge:snapshot()`, prefer the unambiguous handle API. Save the current node's `click_target` during `on_app_widget_updated()` and pass it back while that bridge is current:
+
+```lua
+function on_click(idx)
+    if w_bridge ~= nil and balance_click_target ~= nil then
+        w_bridge:click_handle(balance_click_target)
+    end
+end
+```
+
 Open the example [android-widget-sample2.lua](samples/android-widget-sample2.lua) to see how this can be used in the script.
 
 ### Updating and releasing the Widget
 
-The AIO Launcher widget API is designed to keep the widget in memory all the time while the script is on the screen. This means that after calling `widgets:request_updates()`, the launcher will call the `on_widget_updated()` callback after _every_ widget interface update as long as the script is on the launcher's screen, and the launcher is on the phone's screen.
+The AIO Launcher widget API is designed to keep the widget in memory all the time while the script is on the screen. This means that after calling `widgets:request_updates()`, the launcher will call the `on_app_widget_updated()` callback after _every_ widget interface update as long as the script is on the launcher's screen, and the launcher is on the phone's screen.
 
-In most cases, such a mechanism is preferable. However, there are situations when `on_widget_updated()` should only be called when the script asks for it, and the widget itself should not constantly hang in memory. For this, there's a special `bridge:free()` method.
+In most cases, such a mechanism is preferable. However, there are situations when `on_app_widget_updated()` should only be called when the script asks for it, and the widget itself should not constantly hang in memory. For this, there's a special `bridge:free()` method.
 
-For example, you have a widget whose information you want to receive every morning, not with every update. In this case, you do everything the same as in the example above, but at the end of the `on_app_widget_updated()` function, you call `bridge:free()`. After that, the launcher will release the widget and will no longer call the `on_widget_updated()` method (while the widget itself will not respond to clicks). Then, it's enough to call `widgets:request_updates()` every morning to update the script's content.
+For example, you have a widget whose information you want to receive every morning, not with every update. In this case, you do everything the same as in the example above, but at the end of the `on_app_widget_updated()` function, you call `bridge:free()`. After that, the launcher will release the widget and will no longer call the `on_app_widget_updated()` method (while the widget itself will not respond to clicks). Then, it's enough to call `widgets:request_updates()` every morning to update the script's content.
 
 ### Other Functions
 
@@ -117,16 +166,16 @@ The information provided above is sufficient to handle almost any application wi
 
 Other functions:
 
-```
-* bridge:label() - returns the name of the widget;
-* bridge:provider() - returns the name of the widget provider;
-* bridge:dump_tree() - returns the UI tree in text format;
-* bridge:dump_json() - returns the UI tree in Json format;
-* bridge:dump_colors() - returns a table of color tables, where `keys` are element names, `values` are colors;
-* bridge:dump_elements(element_name) - returns a table of tables of specified elements, where `keys` are element names, `values` are their values.
-```
+* `bridge:label()` - returns the name of the widget;
+* `bridge:provider()` - returns the name of the widget provider;
+* `bridge:snapshot()` - returns an ordered structured hierarchy for field matching and actions;
+* `bridge:snapshot_json()` - returns the same structured hierarchy as formatted JSON;
+* `bridge:click_handle(handle)` - clicks a handle from the current structured snapshot and returns whether it was found;
+* `bridge:dump_tree()` - returns the UI tree in text format;
+* `bridge:dump_json()` - returns the UI tree in Json format;
+* `bridge:dump_colors()` - returns a table of color tables, where `keys` are element names, `values` are colors;
+* `bridge:dump_elements(element_name)` - returns a table of tables of specified elements, where `keys` are element names, `values` are their values.
 
 ### Examples
 
 In the [samples](samples/) directory, you will find several widget examples. Also, pay attention to the Todoist and Chrome widgets in the [community](community/) directory.
-

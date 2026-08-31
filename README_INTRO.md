@@ -192,7 +192,7 @@ Creating scripts for AIO Launcher opens up endless possibilities for customizing
 
 ## Sources for Further Study
 
-- citeturn0search0 [Official AIO Launcher Scripts Repository](https://github.com/zobnin/aiolauncher_scripts)
+- [Official AIO Launcher Scripts Repository](https://github.com/zobnin/aiolauncher_scripts)
 - [AIO Launcher on Google Play](https://play.google.com/store/apps/details?id=ru.execbit.aiolauncher&hl=en)
 - [Lua Documentation](https://www.lua.org/pil/)
 - [Cat Fact API](https://catfact.ninja/fact)

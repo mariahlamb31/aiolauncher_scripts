@@ -26,6 +26,12 @@ The type of script is determined by the line (meta tag) at the beginning of the 
 
 # Changelog
 
+### 7.5.0
+
+* Added structured Android widget inspection with `bridge:snapshot()`, `bridge:snapshot_json()`, and render-local `bridge:click_handle()` actions
+* Added an ADB-driven workflow for coding agents to capture real Android widgets, replay state transitions, validate wrappers, and verify installed scripts; the inspector endpoint is available in release builds and protected by Android's privileged `DUMP` permission
+* Replaced the separate ADB installation helpers with `manage-scripts.sh` for validation and individual or full installation and removal
+
 ### 7.4.0
 
 * Added `intent:open_uri()`, `intent:open_app_settings()`, and `intent:open_system_settings()` helpers
@@ -1758,7 +1764,7 @@ end
 
 Some tips on writing and debugging scripts:
 
-* The most convenient way to upload scripts to your smartphone is to use the `install-scripts.sh` script from this repository. This is a sh script for UNIX systems which loads all the scripts from the repository onto the (virtual) memory card of the smartphone using ADB. You can edit it to your liking.
+* Use `./manage-scripts.sh install SCRIPT` and `./manage-scripts.sh remove SCRIPT` to manage one script through ADB. The `install-all` command replaces the installed set with all configured repositories, while `remove-all` removes it. Pass `-s SERIAL` before the command when more than one device is connected.
 * When you change the script, it will be automatically reloaded when you return to the desktop. The search scripts will be reloaded automatically next time you open the search window.
 * Since version 4.4.2 AIO Launcher includes `debug` module with methods: `debug:log(text)`, `debug:toast(text)` and `debug:dialog(text)`;
 * Since version 4.8.0 you can use `--testing = "true"` meta tag. In this case, launcher will gray out the script and place it at the end of the list in the side menu.

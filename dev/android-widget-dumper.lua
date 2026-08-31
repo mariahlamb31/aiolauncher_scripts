@@ -1,5 +1,7 @@
 -- name = "Android widgets dumper"
--- foldable = false
+-- type = "widget"
+-- aio_version = "7.5.0-beta2"
+-- foldable = "false"
 
 -- Place app package name with widget here
 app_pkg = "com.google.android.googlequicksearchbox"
@@ -51,9 +53,12 @@ function on_app_widget_updated(bridge)
     local provider = bridge:provider()
     local dump = bridge:dump_tree()
     local colors = bridge:dump_colors()
+    local snapshot = bridge:snapshot_json()
     w_content = provider.."\n\n"..dump.."\n\n"..serialize(colors)
+
+    files:write("android-widget-snapshot.json", snapshot)
 
     ui:show_text("%%txt%%"..w_content)
     debug:log("dump:\n\n"..w_content)
+    debug:log("Structured snapshot saved to android-widget-snapshot.json")
 end
-

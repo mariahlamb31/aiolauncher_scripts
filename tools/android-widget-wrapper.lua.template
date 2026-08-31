@@ -1,0 +1,76 @@
+-- name = "__WIDGET_NAME__"
+-- description = "AIO wrapper for the __APP_NAME__ Android widget"
+-- type = "widget"
+-- version = "1.0"
+-- aio_version = "__AIO_VERSION__"
+-- uses_app = "__PACKAGE_NAME__"
+
+local prefs = require "prefs"
+
+local provider = "__PROVIDER__"
+-- Leave this nil for scrollable or naturally sized widgets. Set a captured
+-- size such as "4x2" only when the wrapper intentionally depends on it.
+local widget_size = nil
+local current_bridge = nil
+local current_click_target = nil
+
+local function ends_with(value, suffix)
+    return suffix == "" or string.sub(value, -string.len(suffix)) == suffix
+end
+
+local function find_node(snapshot, resource_id, path_suffix, occurrence)
+    local found = 0
+    for _, node in ipairs(snapshot.nodes or {}) do
+        local resource_matches = resource_id == nil or node.resource_id == resource_id
+        local path_matches = path_suffix == nil or ends_with(node.path or "", path_suffix)
+        if resource_matches and path_matches then
+            found = found + 1
+            if found == (occurrence or 1) then
+                return node
+            end
+        end
+    end
+    return nil
+end
+
+local function setup_app_widget()
+    local id = widgets:setup(provider)
+    if id == nil then
+        ui:show_text("Can't add widget")
+        return false
+    end
+    prefs.app_widget_id = id
+    return true
+end
+
+function on_resume()
+    if not widgets:bound(prefs.app_widget_id) and not setup_app_widget() then
+        return
+    end
+    if widget_size == nil then
+        widgets:request_updates(prefs.app_widget_id)
+    else
+        widgets:request_updates(prefs.app_widget_id, widget_size)
+    end
+end
+
+function on_app_widget_updated(bridge)
+    local snapshot = bridge:snapshot()
+    local value_node = find_node(snapshot, "__RESOURCE_ID__", nil, 1)
+    if value_node == nil then
+        current_bridge = nil
+        current_click_target = nil
+        ui:show_text("Widget data is unavailable")
+        return
+    end
+
+    current_bridge = bridge
+    current_click_target = value_node.click_target
+    ui:show_text(value_node.text or value_node.value or value_node.content_description or "")
+end
+
+function on_click(idx)
+    if idx == 0 and current_bridge ~= nil and current_click_target ~= nil then
+        current_bridge:click_handle(current_click_target)
+    end
+end

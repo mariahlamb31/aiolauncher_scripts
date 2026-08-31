@@ -61,18 +61,21 @@ prefs.my_key = "value"  -- Auto-saved to disk
 
 **On Android device via ADB**:
 ```bash
-# Push scripts to device
-./install-scripts.sh  # Pushes all scripts from configured repos
-./install-one-script.sh <filename>  # Push single script
+# Install one script or all configured repositories
+./manage-scripts.sh install <filename>
+./manage-scripts.sh install-all
 
-# Remove all scripts from device
-./rm-scripts.sh
+# Remove one script or all scripts from device
+./manage-scripts.sh remove <filename>
+./manage-scripts.sh remove-all
 ```
 
 Scripts are auto-reloaded when:
 - Returning to home screen (widget scripts)
 - Opening search window (search scripts)
 - Opening side menu (drawer scripts)
+
+**Android widget wrappers**: When an emulator or device with the target app is available, follow `tools/ANDROID_WIDGET_WRAPPER_AGENT.md`. Use `tools/android-widget-inspector.sh` for direct ADB capture and replay instead of installing the Lua dumper. This repository's wrappers use the public `widgets` API and do not use the internal generator's `aio_api.lua`.
 
 **Distribution**:
 ```bash
